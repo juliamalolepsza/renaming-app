@@ -1,6 +1,6 @@
 import sys, pymupdf
 
-dir_in = "C:\Users\Julia\Downloads"
+dir_in = "/Users/juliamalolepsza/Downloads"
 
 def load_pdfs():
     return []
