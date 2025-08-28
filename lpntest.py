@@ -4,7 +4,7 @@ import numpy as np
 import re
 import os
 
-folder = "/Users/juliamalolepsza/Downloads/"
+folder = "/Users/juliamalolepsza/Downloads/stale_up/"
 reader = easyocr.Reader(['pl', 'en'], gpu=False)
 
 
@@ -21,7 +21,8 @@ for file in os.listdir(folder):
             all_text = " ".join([text for _, text, _ in results])
 
             vin_match = re.search(r'\b([A-Z0-9]{12}[0-9]{5})(?:\([A-Z0-9]+\))?\b', all_text)
-            lpn_match = re.search(r'\b[A-Z]{1}[0-9A-Z]{1,2}[\s][0-9A-Z]{3,5}\b', all_text)
+            lpn_match = re.search(r'\b(?:A\s)?[A-Z]{1}[0-9]{1,2}[\s][0-9A-Z]{4,5}\b', all_text)
+            # to_rotate = re.search(r'<|>|v')
 
             if lpn_match:
                 temp_lpn = lpn_match.group().replace(" ", "")

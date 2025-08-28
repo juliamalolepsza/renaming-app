@@ -3,18 +3,21 @@ from pdf2image import convert_from_path
 import numpy as np
 import re
 import os
+import cv2
 
-folder = "/Users/juliamalolepsza/Downloads/"
+# folder = "/Users/juliamalolepsza/Downloads/"
 reader = easyocr.Reader(['pl', 'en'], gpu=False)
 vin_lpn_map = {}
 
 categories = {
-    "vp" : ["PL", "RZECZPOSPOLITA POLSKA", "POZWOLENIE CZASOWE"],
-    "ec" : ["CEMT-Nachweis", "ECMT"],
-    "coc" : ["CO2"]
+    "soft" : ["POZWOLENIE" "CZASOWE", "CEL", "WYDANIA", "CZASOWEGO"],
+    "vp" : ["WSPÓLNOTA", "EUROPEJSKA", "DOWÓD", "REJESTRACYJNY"],
+    "ec" : ["CEMT-Nachweis", "CEMT", "ECMT"],
+    "coc" : ["CO2", "CO", "mg/kWh", "THC"]
 }
 
 extensions = {
+        "soft" : "_VP_01",
         "vp": "_VP_01",
         "ec": "_EC_02",
         "coc": "_COC_03"
@@ -33,6 +36,9 @@ def name_document(folder, path, category, vin):
     new_path = os.path.join(folder, new_name)
     os.rename(path, new_path)
     return 
+
+def rotate_vp():
+
 
 
 
@@ -60,38 +66,48 @@ def final_rename(folder, vin_lpn_map):
 
 # ================= ocr ===================
 
-for file in os.listdir(folder):
-    if file.endswith(".pdf"):
-        pdf_path = os.path.join(folder, file)
-        images = convert_from_path(pdf_path)
+qr_detector = cv2.QRCodeDetector()
 
-        temp_lpn = None
-        vin_last4 = None
+def process_images(folder):
+    for file in os.listdir(folder):
+        if file.endswith(".pdf"):
+            pdf_path = os.path.join(folder, file)
+            images = convert_from_path(pdf_path)
 
-        for page_num, image in enumerate(images):
-            results = reader.readtext(np.array(image))
-            all_text = " ".join([text for _, text, _ in results])
+            temp_lpn = None
+            vin_last4 = None
 
-            vin_match = re.search(r'\b([A-Z0-9]{12}[0-9]{5})(?:\([A-Z0-9]+\))?\b', all_text)
-            lpn_match = re.search(r'\b[A-Z]{1}[0-9A-Z]{1,2}[\s][0-9A-Z]{3,5}\b', all_text)
+            for page_num, image in enumerate(images):
+                results = reader.readtext(np.array(image))
+                all_text = " ".join([text for _, text, _ in results])
 
-            if lpn_match:
-                temp_lpn = lpn_match.group().replace(" ", "")
-
-            if vin_match:
-                vin_last4 = vin_match.group(1)[-4:]
-
-            
-            doc_category = categorize_document(all_text)
-
-            if doc_category:
-                break
+                doc_category = categorize_document(all_text)
                 
-        if vin_last4:
-            if (vin_last4 not in vin_lpn_map) or (vin_lpn_map[vin_last4] is None):
-                vin_lpn_map[vin_last4] = temp_lpn
 
-        name_document(folder, pdf_path, doc_category, vin_last4)
+                if doc_category == "vp":
+                    rotate_vp(image)
+
+                vin_match = re.search(r'\b([A-Z0-9]{12}[0-9]{5})(?:\([A-Z0-9]+\))?\b', all_text)
+                lpn_match = re.search(r'\b[A-Z]{1}[0-9]{1,2}\s?[0-9A-Z]{4,5}\b', all_text)
+
+                if lpn_match:
+                    temp_lpn = lpn_match.group().replace(" ", "")
+
+                if vin_match:
+                    vin_last4 = vin_match.group(1)[-4:]
+
+                if doc_category:
+                    break
+                    
+            if vin_last4:
+                if (vin_last4 not in vin_lpn_map) or (vin_lpn_map[vin_last4] is None):
+                    vin_lpn_map[vin_last4] = temp_lpn
+
+            name_document(folder, pdf_path, doc_category, vin_last4)
+
+
+folder = "/Users/juliamalolepsza/Downloads/stale_up"
+process_images(folder)
 
 print(vin_lpn_map)
 
