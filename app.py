@@ -38,6 +38,7 @@ def name_document(folder, path, category, vin):
     return 
 
 def rotate_vp():
+    return
 
 
 
@@ -61,7 +62,34 @@ def final_rename(folder, vin_lpn_map):
             final_path = os.path.join(folder, final_name)
             os.rename(old_path, final_path)
 
-            
+
+def read_image(image):
+    results = reader.readtext(np.array(image))
+    all_text = " ".join([text for _, text, _ in results])
+    return all_text    
+
+
+def check_for_vp(image):
+    image = np.array(image)
+    qr_detector = cv2.QRCodeDetector()
+
+    retval, points = qr_detector.detect(image)
+
+    if not retval or points is None:
+        return image, False
+    
+    cx = int(points[:,0,0].mean())
+    cy = int(points[:,0,1].mean())
+    (h, w) = image.shape[:2]
+
+    if cx < w/2 and cy < h/2:
+        image = cv2.rotate(image, cv2.ROTATE_180)    # top-left -> bottom-right
+    elif cx > w/2 and cy < h/2:
+        image = cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE) # top-right -> bottom-right
+    elif cx < w/2 and cy > h/2:
+        image = cv2.rotate(image, cv2.ROTATE_90_COUNTERCLOCKWISE) # bottom-left -> bottom-right
+
+    return image, True
 
 
 # ================= ocr ===================
@@ -78,15 +106,16 @@ def process_images(folder):
             vin_last4 = None
 
             for page_num, image in enumerate(images):
-                results = reader.readtext(np.array(image))
-                all_text = " ".join([text for _, text, _ in results])
 
-                doc_category = categorize_document(all_text)
+                image, has_qr = check_for_vp(image) #check if has qr -> then its vp - rotate
+
+                all_text = read_image(image) 
+
+                if has_qr:
+                    doc_category = "vp"
+                else:
+                    doc_category = categorize_document(all_text)
                 
-
-                if doc_category == "vp":
-                    rotate_vp(image)
-
                 vin_match = re.search(r'\b([A-Z0-9]{12}[0-9]{5})(?:\([A-Z0-9]+\))?\b', all_text)
                 lpn_match = re.search(r'\b[A-Z]{1}[0-9]{1,2}\s?[0-9A-Z]{4,5}\b', all_text)
 
@@ -106,7 +135,7 @@ def process_images(folder):
             name_document(folder, pdf_path, doc_category, vin_last4)
 
 
-folder = "/Users/juliamalolepsza/Downloads/stale_up"
+folder = "/Users/juliamalolepsza/Downloads/"
 process_images(folder)
 
 print(vin_lpn_map)
