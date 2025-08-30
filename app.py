@@ -11,7 +11,7 @@ vin_lpn_map = {}
 
 categories = {
     "soft" : ["POZWOLENIE" "CZASOWE", "CEL", "WYDANIA", "CZASOWEGO"],
-    "vp" : ["WSPÓLNOTA", "EUROPEJSKA", "DOWÓD", "REJESTRACYJNY"],
+    "vp" : ["WSPÓLNOTA", "EUROPEJSKA", "DOWÓD", "REJESTRACYJNY", "DR", "DRBAU", "BAT", "DRIBAT", "BAR", "BAU"],
     "ec" : ["CEMT-Nachweis", "CEMT", "ECMT"],
     "coc" : ["CO2", "CO", "mg/kWh", "THC"]
 }
@@ -30,16 +30,21 @@ def categorize_document(text):
                 return category
     return None
 
+count = 0
+
 def name_document(folder, path, category, vin):
     extension = extensions.get(category, "_UNKNOWN")
-    new_name = f"PL_{vin}{extension}.pdf"
+    base_name = f"PL_{vin}{extension}"
+    new_name = f"{base_name}.pdf"
     new_path = os.path.join(folder, new_name)
+
+    counter = 1
+    while os.path.exists(new_path):
+        new_name = f"{base_name}_{counter}.pdf"
+        new_path = os.path.join(folder, new_name)
+        counter += 1
     os.rename(path, new_path)
-    return 
-
-def rotate_vp():
     return
-
 
 
 
@@ -58,8 +63,18 @@ def final_rename(folder, vin_lpn_map):
                 lpn = vin_lpn_map[vin]
             else:
                 lpn = vin
-            final_name = f"PL_{lpn}{extension}.pdf"
+
+
+            base_name = f"PL_{lpn}{extension}"
+            final_name = f"{base_name}.pdf"
             final_path = os.path.join(folder, final_name)
+
+            counter = 1
+            while os.path.exists(final_path):
+                final_name = f"{base_name}_{counter}.pdf"
+                final_path = os.path.join(folder, final_name)
+                counter += 1
+
             os.rename(old_path, final_path)
 
 
@@ -74,8 +89,9 @@ def check_for_vp(image):
     qr_detector = cv2.QRCodeDetector()
 
     retval, points = qr_detector.detect(image)
+    print(points)
 
-    if not retval or points is None:
+    if points is None:
         return image, False
     
     cx = int(points[:,0,0].mean())
@@ -117,7 +133,7 @@ def process_images(folder):
                     doc_category = categorize_document(all_text)
                 
                 vin_match = re.search(r'\b([A-Z0-9]{12}[0-9]{5})(?:\([A-Z0-9]+\))?\b', all_text)
-                lpn_match = re.search(r'\b[A-Z]{1}[0-9]{1,2}\s?[0-9A-Z]{4,5}\b', all_text)
+                lpn_match = re.search(r'\b[A-Z]{1}[A-Z0-9]{1,2}\s?[0-9A-Z]{4,5}\b', all_text)
 
                 if lpn_match:
                     temp_lpn = lpn_match.group().replace(" ", "")
